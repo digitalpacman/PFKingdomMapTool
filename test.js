@@ -40,6 +40,132 @@ function Hex() {
   };
 }
 
+var improvements = {
+  "aqueduct" : {
+    effectRequirement : function() {
+      // TODO: A finished series of Aqueduct hexes must connect to a hill or mountain hex (with a river or lake) on one end and a settlement on the other end; otherwise, you do not gain its benefit.
+    },
+    settlementEffect : function() {
+      // TODO: allows settlement to build water-dependent buildings.
+    },
+    loyaltyChange : 1,
+    stabilityChange : 1,
+    cost : function(hex) {
+      switch (hex.kind) {
+        case "cavern", "desert", "jungle", "marsh", "mountains": return 4;
+        case "hills" : return 3;
+        case "forest" : return 2;
+        case "plains" : return 1;
+      }
+      throw "Aqueduct cannot be built in this hex";
+    },
+    terrainRequirement : "cavern desert jungle marsh mountains hills forest plains",
+    canShare : true
+  },
+  "canal" : {
+    terrainRequirement : "desert hills plains",    
+    settlementEffect : function() {
+      // TODO: Settlements in a hex with a Canal treat the hex as if it had a river.
+    },
+    cost : function(hex) {
+      switch (hex.kind) {
+        case "cavern", "desert", "jungle", "marsh", "mountains": return 8;
+        case "hills" : return 6;
+        case "forest" : return 4;
+        case "plains" : return 2;
+      }
+      throw "Canal cannot be built in this hex";
+    },
+    canShare : true
+  },
+  "farm" : {
+    terrainRequirement : "desert(canal coastline river) hills plains",
+    consumptionChange : -2,
+    cost : function(hex) {
+      switch (hex.kind) {
+        case "desert": return 8;
+        case "hills" : return 4;
+        case "plains" : return 2;
+      }
+      throw "Canal cannot be built in this hex";
+    }
+  },
+  "fishery" : {
+    terrainRequirement : "coastline water river marsh",
+    consumptionChange : -1,
+    cost : 4,
+    canShare : true
+  },
+  "fort" : {
+    turnsIntoSettlementBuilding : "barracks stables",
+    terrainRequirement : "!water",
+    stabilityChange : 2,
+    defense : 4,
+    consumptionChange : 1,
+    unrestChange : -1,
+    cost : 24,
+    canShare : true,
+  },
+  "highway" : {
+    kingdomSizeRequirement : 26,
+    terrainRequirement : "road",
+    economyChange : 1, // TODO: Economy +1 for every 4 hexes of Highway
+    stabilityChange : 1, // TODO: Stability +1 for every 8 hexes of Highway,
+    cost : function(hex) { // TODO: doubles if hex has river
+      switch (hex.kind) {
+        case "cavern", "desert", "jungle", "marsh", "mountains": return 8;
+        case "hills" : return 6;
+        case "forest" : return 4;
+        case "plains" : return 2;
+      }
+      throw "Canal cannot be built in this hex";
+    },
+    canShare : true,
+  },
+  "mine" : {
+    terrainRequirement : "cavern desert hills mountains",
+    economyChange : 1,
+    taxChange : 1,
+    cost : 6,
+  },
+  "quarry" : {
+    terrainRequirement : "cavern hills mountains",
+    stabilityChange : 1,
+    taxChange : 1,
+    cost : 6
+  },
+  "road" : {
+    upgradesInto : "highway",
+    terrainRequirement : "!water",
+    economyChange : 1, // TODO: Economy +1 for every 4 hexes of Highway
+    stabilityChange : 1, // TODO: Stability +1 for every 8 hexes of Highway,
+    cost : function(hex) { // TODO: doubles if hex has river
+      switch (hex.kind) {
+        case "cavern", "desert", "jungle", "marsh", "mountains": return 4;
+        case "hills" : return 3;
+        case "forest" : return 2;
+        case "plains" : return 1;
+      }
+      throw "Canal cannot be built in this hex";
+    },
+    canShare : true
+  },
+  "sawmill" : {
+    terrainRequirement : "forest jungle",
+    stabilityChange : 1,
+    taxChange : 1,
+    cost : 3
+  },
+  "watchtower" : {
+    terrainRequirement : "!water",
+    defense : 2,
+    unrestChange : -1,
+    turnsIntoSettlementBuilding : "watchtower",
+    upgradeInto : "fort",
+    cost : 12,
+  }
+}
+
 function Farm() {
   var self = this;
   self.name = "Farm";
