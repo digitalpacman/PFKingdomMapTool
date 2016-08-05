@@ -1,0 +1,250 @@
+<canvas id=mycanvas width=800 height=800 style="border:1px solid #000000"></canvas>
+
+<div>
+  <button onclick="toggleScale(0.1)">Zoom In</button>
+  <button onclick="toggleScale(-0.1)">Zoom Out</button>
+  <button onclick="clearCanvas()">Clear Canvas</button>
+  <button onclick="drawMode()">Draw Mode</button>
+  <button onclick="dragMode()">Drag Mode</button>
+  <button onclick="horizontalAdjust(-1)">Move Left</button>
+  <button onclick="horizontalAdjust(1)">Move Right</button>
+  <button onclick="verticalAdjust(-1)">Move Up</button>
+  <button onclick="verticalAdjust(1)">Move Down</button>
+  <button onclick="increaseSize()">Increase Size</button>
+</div>
+
+<div id="coords"></div>
+
+<script>
+var canvas = get("mycanvas")
+var c = canvas.getContext("2d")
+var scale = 1
+var mode = 'draw'
+var items = []
+var dragging
+var dragCoords
+var width = 800
+var height = 800
+
+onload = function() {
+  reset()
+}
+
+var xstart = 10
+var ystart = -27
+var size = 60;
+function horizontalAdjust(val) {
+  xstart += val
+  reset()
+}
+function verticalAdjust(val) {
+  ystart += val
+  reset()
+}
+function increaseSize() {
+  size += 1
+  reset()
+}
+
+function reset() {
+  items = []
+  items.push(new Image(0, 0, 'stolenlands'))
+
+  var d = Math.sqrt(3)/2 * size;
+  for (var x = 0; x < 8; x++) {
+    for (var y = 0; y < 10; y++) {
+      var h = new Hex(x * d * 2 + (y % 2 == 0 ? d : 0) + xstart, 
+        1.50 * size * y + size + ystart, 
+        size)
+      items.push(h)
+    }
+  }
+  render()
+}
+
+canvas.addEventListener('mousedown', function clk(e) {
+  var x = event.pageX - canvas.offsetLeft, y = event.pageY - canvas.offsetTop
+  x = x / scale - 1
+  y = y / scale - 1
+  get('coords').innerHTML = x + ' ' + y
+
+  for (var i in items) {
+    var item = items[i]
+    if (item.isClicked(x, y)) {
+      get('coords').innerHTML = item.x + ' ' + item.y
+      item.selected = true
+      item.icons.push(get('hut'))
+      item.icons.push(get('hut'))
+      item.icons.push(get('hut'))
+      item.icons.push(get('city'))
+      item.draw()
+      item.draw()
+      break
+    }
+  }
+})
+
+canvas.addEventListener('mouseup', function clk(e) {
+  if (!dragging) return
+
+  dragCoords = dragging = null
+})
+
+document.addEventListener('wheel', function clk(e) {
+  console.log(e.deltaY/2000)
+  render(e.deltaY/2000)
+  e.preventDefault()
+})
+
+document.addEventListener('mousemove', function clk(e) {
+  if (!dragging) return;
+
+  var x = event.pageX - canvas.offsetLeft, y = event.pageY - canvas.offsetTop
+  x = x / scale
+  y = y / scale
+  get('coords').innerHTML = x + ' ' + y
+
+  if (dragCoords) {
+    dragging.x += x - dragCoords.x
+    dragging.y += y - dragCoords.y
+    dragCoords.x = x
+    dragCoords.y = y
+    render()
+  }
+  else {
+    dragCoords = { x: x, y: y }
+  }
+})
+
+function get(id) {
+  return document.getElementById(id)
+}
+
+function drawMode() {
+  mode = 'draw';
+}
+
+function dragMode() {
+  mode = 'drag';
+}
+
+function Hex(x, y, r) {
+  var self = this
+  self.x = x
+  self.y = y
+  self.r = r
+  self.center = {x: self.x, y: self.y}
+  self.selected;
+  self.icons = [];
+
+  self.points = [];
+  self.points.push(hex_corner(self.center, self.r, 0))
+  for (var i = 1; i < 6; i++) {
+    self.points.push(hex_corner(self.center, self.r, i))
+  }
+
+  self.draw = function(rerender) {
+    c.beginPath()
+    c.lineWidth = 2
+    c.strokeStyle = self.selected ? '#ff0000' : '#000'
+    if (rerender) c.moveTo(self.points[0].x, self.points[0].y)
+    else c.moveTo(self.points[0].x * scale, self.points[0].y * scale)
+    for (var i = 1; i < self.points.length; i++) {
+      if (rerender) c.lineTo(self.points[i].x, self.points[i].y)
+      else c.lineTo(self.points[i].x * scale, self.points[i].y * scale)
+    }
+    if (rerender) c.lineTo(self.points[0].x, self.points[0].y)
+    else c.lineTo(self.points[0].x * scale, self.points[0].y * scale)
+    c.closePath()
+    c.stroke()
+
+    for (var i = 0; i < self.icons.length; i++) {
+      if (i == 0) {
+        if (rerender) c.drawImage(self.icons[i], self.x - 10, self.y - size + 8)
+        else c.drawImage(self.icons[i], (self.x - 10) * scale, (self.y - size + 8) * scale)
+      }
+      else if (i == 1) {
+        if (rerender) c.drawImage(self.icons[i], self.x - size + 10, self.y - 10)
+        else c.drawImage(self.icons[i], (self.x - size + 10) * scale, (self.y - 10) * scale)
+      }
+      else if (i == 2) {
+        if (rerender) c.drawImage(self.icons[i], self.x + size - 30, self.y - 10)
+        else c.drawImage(self.icons[i], (self.x + size - 30) * scale, (self.y - 10) * scale)
+      }
+      else if (i == 3) {
+        if (rerender) c.drawImage(self.icons[i], self.x - 15, self.y - 10)
+        else c.drawImage(self.icons[i], (self.x - 15) * scale, (self.y - 10) * scale)
+      }
+    }
+  }
+
+  self.isClicked = function(x, y) {
+    if (Math.abs(self.x - x) > self.r) return false;
+    if (Math.abs(self.y - y) > self.r) return false;
+    return true;
+  }
+}
+
+function Image(x, y, id) {
+  var self = this
+  self.x = x
+  self.y = y
+  self.img = get(id)
+
+  self.draw = function(rerender) {
+    c.drawImage(self.img, self.x, self.y)
+  }
+
+  self.isClicked = function() {
+
+  }
+}
+
+function hex_corner(center, size, i) {
+  var angle_deg = 60 * i + 30
+  var angle_rad = Math.PI / 180 * angle_deg
+  return {x: center.x + size * Math.cos(angle_rad),
+    y: center.y + size * Math.sin(angle_rad)}
+}
+
+function Square(x, y, side) {
+  var self = this
+  self.x = x
+  self.y = y
+  self.side = side
+
+  self.draw = function(rerender) {
+    c.fillStyle = '#FF0000'
+    if (rerender)
+      c.fillRect(self.x, self.y, self.side, self.side)
+    else
+      c.fillRect(self.x * scale, self.y * scale, self.side * scale, self.side * scale)
+  }
+}
+
+function render(scaleChange) {
+  clearCanvas()
+  if (scaleChange) scale += scaleChange
+  c.save()
+  c.scale(scale, scale)
+  for (var i in items) {
+    items[i].draw(true)
+  }
+  c.restore()
+}
+
+function clearCanvas() {
+  c.clearRect(0, 0, width * scale * 2, height * scale * 2)
+}
+
+function toggleScale(scaleChange) {
+  render(scaleChange)
+}
+
+</script>
+<img id="stolenlands" src="stolen_lands.jpg" 
+  style="visibility: hidden" />
+<img id="hut" src="hut.png" 
+  style="visibility: hidden" />
+<img id="city" src="city.png" 
+  style="visibility: hidden" />
