@@ -1,28 +1,50 @@
 <canvas id=mycanvas width=800 height=800 style="border:1px solid #000000"></canvas>
 
+<style>
+body {
+  padding: 0;
+  margin: 10px;
+}
+.button {
+  cursor: pointer;
+}
+.button.selected {
+  background-color: yellow;
+}
+</style>
+<div style='position: absolute; left: 820px; top: 10px; width: 70px; height: 200px; padding-left: 5px; text-align: left; border: 5px solid black'>
+  <div class='city button' onclick="setAction('city')">City</div>
+  <div class='claim button selected' onclick="setAction('claim')">[C] Claim</div>
+  <div class='hide button' onclick="setAction('hide')">[H] Hide</div>
+</div>
+
+<h1>Available keys for clicking: [none], H [hides hex]</h1>
+
 <div>
-  <button onclick="toggleScale(0.1)">Zoom In</button>
-  <button onclick="toggleScale(-0.1)">Zoom Out</button>
-  <button onclick="clearCanvas()">Clear Canvas</button>
-  <button onclick="drawMode()">Draw Mode</button>
-  <button onclick="dragMode()">Drag Mode</button>
+  <button onclick="reset()">Reset</button>
   <button onclick="horizontalAdjust(-1)">Move Left</button>
   <button onclick="horizontalAdjust(1)">Move Right</button>
   <button onclick="verticalAdjust(-1)">Move Up</button>
   <button onclick="verticalAdjust(1)">Move Down</button>
   <button onclick="increaseSize()">Increase Size</button>
+  <button onclick="panHorizontal(5)">Pan Right</button>
+  <button onclick="panHorizontal(-5)">Pan Left</button>
+  <button onclick="panVertical(-5)">Pan Up</button>
+  <button onclick="panVertical(5)">Pan Down</button>
 </div>
-
-<div id="coords"></div>
+<div>
+  <button onclick="save()">Save</button>
+  <button onclick="load()">Load</button>
+</div>
 
 <script>
 var canvas = get("mycanvas")
 var c = canvas.getContext("2d")
 var scale = 1
+var panX = 0
+var panY = 0
 var mode = 'draw'
 var items = []
-var dragging
-var dragCoords
 var width = 800
 var height = 800
 
@@ -30,9 +52,35 @@ onload = function() {
   reset()
 }
 
-var xstart = 10
-var ystart = -27
-var size = 60;
+function save() {
+  var json = JSON.stringify(items)
+  localStorage.setItem('map', json)
+  console.log(json)
+}
+
+function load() {
+  var map = localStorage.getItem('map')
+  if (!map) return
+
+  var objs = JSON.parse(map)
+  items = []
+  for (var i = 0; i < objs.length; i++) {
+    var o = objs[i]
+    switch (o.kind) {
+      case 'Hex':
+        items.push(new Hex(o.x, o.y, o.r, o.selected, o.hidden, o.centerIconId))
+        break;
+      case 'Image':
+        items.push(new Image(o.x, o.y, o.imgId))
+        break;
+    }
+  }
+  render()
+}
+
+var xstart = 13
+var ystart = -23
+var size = 82
 function horizontalAdjust(val) {
   xstart += val
   reset()
@@ -45,14 +93,22 @@ function increaseSize() {
   size += 1
   reset()
 }
+function panHorizontal(val) {
+  panX += val
+  render()
+}
+function panVertical(val) {
+  panY += val
+  render()
+}
 
 function reset() {
   items = []
   items.push(new Image(0, 0, 'stolenlands'))
 
-  var d = Math.sqrt(3)/2 * size;
+  var d = Math.sqrt(3)/2 * size
   for (var x = 0; x < 8; x++) {
-    for (var y = 0; y < 10; y++) {
+    for (var y = 0; y < 11; y++) {
       var h = new Hex(x * d * 2 + (y % 2 == 0 ? d : 0) + xstart, 
         1.50 * size * y + size + ystart, 
         size)
@@ -62,134 +118,176 @@ function reset() {
   render()
 }
 
-canvas.addEventListener('mousedown', function clk(e) {
-  var x = event.pageX - canvas.offsetLeft, y = event.pageY - canvas.offsetTop
-  x = x / scale - 1
-  y = y / scale - 1
-  get('coords').innerHTML = x + ' ' + y
+var lastX, lastY, startX, startY, clicking
+canvas.addEventListener('mousedown', function(e) {
+  startX = lastX = e.pageX - canvas.offsetLeft
+  startY = lastY = e.pageY - canvas.offsetTop
+  clicking = true
+})
 
-  for (var i in items) {
-    var item = items[i]
-    if (item.isClicked(x, y)) {
-      get('coords').innerHTML = item.x + ' ' + item.y
-      item.selected = true
-      item.icons.push(get('hut'))
-      item.icons.push(get('hut'))
-      item.icons.push(get('hut'))
-      item.icons.push(get('city'))
-      item.draw()
-      item.draw()
-      break
+var actionKey = 'claim'
+function setAction(action) {
+  actionKey = action
+  var actionButtons = document.getElementsByClassName('button')
+  console.log(actionButtons)
+  for (var i = 0; i < actionButtons.length; i++) {
+    actionButtons[i].className = actionButtons[i].className.replace('selected', '')
+  }
+  document.getElementsByClassName(action)[0].className = action + ' button selected'
+}
+document.addEventListener('keydown', function(e) {
+  console.log(e.which)
+  switch (e.which) {
+    case 72:
+      setAction('hide')
+      break;
+    case 67:
+      setAction('claim')
+      break;
+  }
+})
+
+canvas.addEventListener('mouseup', function(e) {
+  if (clicking) {
+    var x = e.pageX - canvas.offsetLeft
+    var y = e.pageY - canvas.offsetTop
+
+    var origX = (x - panX) / scale
+    var origY = (y - panY) / scale
+    console.log(origX + ' ' + origY)
+
+    for (var i in items) {
+      var item = items[i]
+      if (item.isClicked(origX, origY)) {
+        console.log(item.x + ' ' + item.y)
+        switch (actionKey) {
+          case 'hide':
+            item.hidden = !item.hidden
+            break;
+          case 'claim':
+            if (!(item.selected = !item.selected)) {
+              item.layer = 0
+            }
+            else {
+              item.layer = 1
+            }
+            break;
+          case 'city':
+            item.setCenterIcon('city')
+            setAction('claim')
+            break;
+        }
+        //item.topIcon = get('hut')
+        //item.leftIcon = get('hut')
+        //item.rightIcon = get('hut')
+        //item.centerIcon = get('city')
+        render()
+        save()
+        break
+      }
     }
   }
+  startX = null
+  startY = null
 })
 
-canvas.addEventListener('mouseup', function clk(e) {
-  if (!dragging) return
+canvas.addEventListener('mousemove', function clk(e) {
+  var x = e.pageX - canvas.offsetLeft
+  var y = e.pageY - canvas.offsetTop
+  console.log(x + ' ' + y)
 
-  dragCoords = dragging = null
-})
+  if (!startX || !startY) return
 
-document.addEventListener('wheel', function clk(e) {
-  console.log(e.deltaY/2000)
-  render(e.deltaY/2000)
-  e.preventDefault()
-})
 
-document.addEventListener('mousemove', function clk(e) {
-  if (!dragging) return;
+  if (Math.abs(x - startX) <= 3 || Math.abs(y - startY) <= 3) return
 
-  var x = event.pageX - canvas.offsetLeft, y = event.pageY - canvas.offsetTop
-  x = x / scale
-  y = y / scale
-  get('coords').innerHTML = x + ' ' + y
-
-  if (dragCoords) {
-    dragging.x += x - dragCoords.x
-    dragging.y += y - dragCoords.y
-    dragCoords.x = x
-    dragCoords.y = y
-    render()
-  }
-  else {
-    dragCoords = { x: x, y: y }
-  }
+  clicking = false
+  panX += x - lastX
+  panY += y - lastY
+  lastX = x
+  lastY = y
+  render()
 })
 
 function get(id) {
   return document.getElementById(id)
 }
 
-function drawMode() {
-  mode = 'draw';
-}
-
-function dragMode() {
-  mode = 'drag';
-}
-
-function Hex(x, y, r) {
+function Hex(x, y, r, selected, hidden, centerIconId) {
   var self = this
+  self.kind = 'Hex'
   self.x = x
   self.y = y
   self.r = r
   self.center = {x: self.x, y: self.y}
-  self.selected;
-  self.icons = [];
+  self.selected
+  self.topIcon
+  self.leftIcon
+  self.rightIcon
+  self.centerIcon
+  self.hidden = hidden
+  self.layer = 0
 
-  self.points = [];
+  self.points = []
   self.points.push(hex_corner(self.center, self.r, 0))
   for (var i = 1; i < 6; i++) {
     self.points.push(hex_corner(self.center, self.r, i))
   }
 
+  self.setCenterIcon = function(id) {
+    self.centerIconId = id
+    self.centerIcon = get(id)
+  }
+  if (centerIconId) self.setCenterIcon(centerIconId)
+
+  self.setSelected = function(selected) {
+    self.selected = selected
+    self.layer = self.selected ? 1 : 0
+  }
+  if (selected) self.setSelected(selected)
+
   self.draw = function(rerender) {
+    if (!rerender) {
+      c.save()
+      c.translate(panX, panY)
+      c.scale(scale, scale)
+    }
     c.beginPath()
     c.lineWidth = 2
+    c.lineJoin = 'round'
     c.strokeStyle = self.selected ? '#ff0000' : '#000'
-    if (rerender) c.moveTo(self.points[0].x, self.points[0].y)
-    else c.moveTo(self.points[0].x * scale, self.points[0].y * scale)
+    c.fillStyle = '#000'
+    c.moveTo(self.points[0].x, self.points[0].y)
     for (var i = 1; i < self.points.length; i++) {
-      if (rerender) c.lineTo(self.points[i].x, self.points[i].y)
-      else c.lineTo(self.points[i].x * scale, self.points[i].y * scale)
+      c.lineTo(self.points[i].x, self.points[i].y)
     }
-    if (rerender) c.lineTo(self.points[0].x, self.points[0].y)
-    else c.lineTo(self.points[0].x * scale, self.points[0].y * scale)
+    c.lineTo(self.points[0].x, self.points[0].y)
     c.closePath()
-    c.stroke()
+    if (self.hidden) c.fill()
+    else c.stroke()
 
-    for (var i = 0; i < self.icons.length; i++) {
-      if (i == 0) {
-        if (rerender) c.drawImage(self.icons[i], self.x - 10, self.y - size + 8)
-        else c.drawImage(self.icons[i], (self.x - 10) * scale, (self.y - size + 8) * scale)
-      }
-      else if (i == 1) {
-        if (rerender) c.drawImage(self.icons[i], self.x - size + 10, self.y - 10)
-        else c.drawImage(self.icons[i], (self.x - size + 10) * scale, (self.y - 10) * scale)
-      }
-      else if (i == 2) {
-        if (rerender) c.drawImage(self.icons[i], self.x + size - 30, self.y - 10)
-        else c.drawImage(self.icons[i], (self.x + size - 30) * scale, (self.y - 10) * scale)
-      }
-      else if (i == 3) {
-        if (rerender) c.drawImage(self.icons[i], self.x - 15, self.y - 10)
-        else c.drawImage(self.icons[i], (self.x - 15) * scale, (self.y - 10) * scale)
-      }
+    if (self.topIcon) c.drawImage(self.topIcon, self.x - 10, self.y - size + 8)
+    if (self.leftIcon) c.drawImage(self.leftIcon, self.x - size + 10, self.y - 10)
+    if (self.rightIcon) c.drawImage(self.rightIcon, self.x + size - 30, self.y - 10)
+    if (self.centerIcon) c.drawImage(self.centerIcon, self.x - 15, self.y - 10)
+    if (!rerender) {
+      c.restore()
     }
   }
 
   self.isClicked = function(x, y) {
-    if (Math.abs(self.x - x) > self.r) return false;
-    if (Math.abs(self.y - y) > self.r) return false;
-    return true;
+    return Math.sqrt(Math.pow(Math.abs(self.x - x), 2) + Math.pow(Math.abs(self.y - y), 2)) * 1.1 < self.r
   }
 }
 
 function Image(x, y, id) {
   var self = this
+  self.kind = 'Image'
   self.x = x
   self.y = y
+  self.imgId = id
   self.img = get(id)
+  self.layer = 0
 
   self.draw = function(rerender) {
     c.drawImage(self.img, self.x, self.y)
@@ -207,42 +305,50 @@ function hex_corner(center, size, i) {
     y: center.y + size * Math.sin(angle_rad)}
 }
 
-function Square(x, y, side) {
-  var self = this
-  self.x = x
-  self.y = y
-  self.side = side
+canvas.addEventListener('wheel', function clk(e) {
+  e.preventDefault()
+  var x = e.pageX - canvas.offsetLeft
+  var y = e.pageY - canvas.offsetTop
+  var scaleChange = e.deltaY / 1000
+  if (scale + scaleChange < 1) scaleChange /= 3
+  zoom(x, y, scaleChange)
+})
 
-  self.draw = function(rerender) {
-    c.fillStyle = '#FF0000'
-    if (rerender)
-      c.fillRect(self.x, self.y, self.side, self.side)
-    else
-      c.fillRect(self.x * scale, self.y * scale, self.side * scale, self.side * scale)
+function zoom(x, y, scaleChange) {
+  console.log({x:x, y:y, scaleChange:scaleChange})
+  var origX = (x - panX) / scale
+  var origY = (y - panY) / scale
+  console.log("translated " + x + " " + y + " to " + origX + " " + origY)
+
+  if (scale + scaleChange < .1) {
+    scaleChange = scale - .1
+    scale = .1
   }
+  else {
+    scale += scaleChange
+  }
+  panX = -(origX * scale - x)
+  panY = -(origY * scale - y)
+
+  render()
 }
 
-function render(scaleChange) {
-  clearCanvas()
-  if (scaleChange) scale += scaleChange
+function render() {
   c.save()
+  c.clearRect(0, 0, width, height)
+  c.translate(panX, panY)
   c.scale(scale, scale)
   for (var i in items) {
-    items[i].draw(true)
+    if (items[i].layer == 0) items[i].draw(true)
+  }
+  for (var i in items) {
+    if (items[i].layer == 1) items[i].draw(true)
   }
   c.restore()
 }
 
-function clearCanvas() {
-  c.clearRect(0, 0, width * scale * 2, height * scale * 2)
-}
-
-function toggleScale(scaleChange) {
-  render(scaleChange)
-}
-
 </script>
-<img id="stolenlands" src="stolen_lands.jpg" 
+<img id="stolenlands" src="whole_map.png" 
   style="visibility: hidden" />
 <img id="hut" src="hut.png" 
   style="visibility: hidden" />

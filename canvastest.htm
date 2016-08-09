@@ -1,0 +1,168 @@
+<canvas id=mycanvas width=300 height=300 style="border:1px solid #000000"></canvas>
+<img id="testmap" src="testmap.png" 
+  style="visibility: hidden" />
+
+<div>
+  <button onclick="one()">one</button>
+  <button onclick="two()">two</button>
+  <button onclick="three()">three</button>
+</div>
+
+<script>
+var scale = 1
+var panx = 0
+var pany = 0
+onload = function() {
+
+  one()
+
+  var canvas = document.getElementById('mycanvas')
+  var lastx, lasty
+  canvas.addEventListener('mousemove', function clk(e) {
+    var x = e.pageX - canvas.offsetLeft
+    var y = e.pageY - canvas.offsetTop
+    console.log(x + ' ' + y)
+
+    if (!dragging) return
+
+    if (lastx && lasty) {
+      panx += x - lastx
+      pany += y - lasty
+    }
+    lastx = x
+    lasty = y
+
+    var c = canvas.getContext("2d")
+    var testmap = document.getElementById('testmap')
+    c.save()
+    c.clearRect(0, 0, 300, 300)
+    c.translate(panx, pany)
+    c.scale(scale, scale)
+    c.drawImage(testmap, 0, 0)
+    c.restore()
+  })
+
+  canvas.addEventListener('contextmenu', function clk(e) {
+    e.preventDefault();
+    zoom(e, -0.2)
+  })
+  var dragging;
+  canvas.addEventListener('click', function clk(e) {
+    zoom(e, 0.2)
+  })
+  canvas.addEventListener('mousedown', function clk(e) {
+    dragging = true
+  })
+  canvas.addEventListener('mouseup', function clk(e) {
+    dragging = false
+    lastx = null
+    lasty = null
+  })
+
+  var zoom = function(e, scaleChange) {
+    var canvas = document.getElementById('mycanvas')
+    var c = canvas.getContext("2d")
+    var testmap = document.getElementById('testmap')
+
+    c.clearRect(0, 0, 103 * scale + panx, 103 * scale + pany)
+
+    var x = e.pageX - canvas.offsetLeft
+    var y = e.pageY - canvas.offsetTop
+
+    var origx = (x - panx) / scale
+    var origy = (y - pany) / scale
+    console.log("translated " + x + " " + y + " to " + origx + " " + origy)
+
+    if (scale + scaleChange < .1) {
+      scaleChange = scale - .1
+      scale = .1
+    }
+    else {
+      scale += scaleChange
+    }
+    scalex = origx * scale
+    scaley = origy * scale
+
+    panx = -(scalex - x)
+    pany = -(scaley - y)
+
+    console.log("pan by " + panx + " " + pany)
+
+    c.save()
+    c.translate(panx, pany)
+    c.scale(scale, scale)
+    c.drawImage(testmap, 0, 0)
+    c.restore()
+  }
+}
+
+function one() {
+  var canvas = document.getElementById('mycanvas')
+  var c = canvas.getContext("2d")
+  var testmap = document.getElementById('testmap')
+
+  c.clearRect(0, 0, 400, 400)
+  c.save()
+  c.drawImage(testmap, 0, 0)
+  c.restore()
+
+
+
+}
+
+function two() {
+  var canvas = document.getElementById('mycanvas')
+  var c = canvas.getContext("2d")
+  var testmap = document.getElementById('testmap')
+
+  var scaleChange = 0.5
+  var scale = 1.5;
+  var x = 50
+  var y = 50
+  var panx = -(x * scaleChange)
+  var pany = -(y * scaleChange)
+
+  console.log("pan by " + panx + " " + pany)
+
+  //c.clearRect(0, 0, 400, 400)
+  c.save()
+  c.translate(panx, pany)
+  c.scale(scale, scale)
+  c.drawImage(testmap, 0, 0)
+  c.restore()
+}
+
+function three() {
+  var canvas = document.getElementById('mycanvas')
+  var c = canvas.getContext("2d")
+  var testmap = document.getElementById('testmap')
+
+  var scale = 1.5
+  var panx = -25
+  var pany = -25
+  // should be 75 50
+  var x = 86
+  var y = 50
+  var origx = (x - panx) / scale
+  var origy = (y - pany) / scale
+
+  console.log("translated cursor " + origx + " " + origy)
+
+  var scaleChange = 1
+  scale = 2
+
+  scalex = origx * scale
+  scaley = origy * scale
+
+  var panx = -(scalex - x)
+  var pany = -(scaley - y)
+
+  console.log("pan by " + panx + " " + pany)
+
+  c.save()
+  c.translate(panx, pany) // -62, -50
+  c.scale(scale, scale)
+  c.drawImage(testmap, 0, 0)
+  c.restore()
+}
+</script>
